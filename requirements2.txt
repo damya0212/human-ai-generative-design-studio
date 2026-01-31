@@ -1,7 +1,10 @@
 streamlit
-torch
+torch==2.1.2
+torchvision
 diffusers
 transformers
 accelerate
 safetensors
 pillow
+numpy
+opencv-python-headless
