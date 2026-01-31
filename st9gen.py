@@ -1,10 +1,9 @@
 import streamlit as st
 import torch
 from diffusers import StableDiffusionPipeline
-from PIL import Image
 import os
 
-# ---------------- CONFIG ----------------
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Human–AI Generative Design Studio",
     layout="wide"
@@ -53,10 +52,9 @@ DOMAIN_OPTIONS = {
 
 # ---------------- DEVICE ----------------
 device = "cpu"
-st.sidebar.warning("Running on CPU (SD-Turbo Draft Mode)")
-st.sidebar.caption("GPU diffusion supported in production")
+st.sidebar.warning("⚠ Running on CPU (SD-Turbo Fast Mode)")
 
-# ---------------- LOAD MODEL ----------------
+# ---------------- LOAD MODEL (ONCE) ----------------
 @st.cache_resource
 def load_pipe():
     pipe = StableDiffusionPipeline.from_pretrained(
@@ -64,6 +62,7 @@ def load_pipe():
         torch_dtype=torch.float32,
         safety_checker=None
     )
+    pipe.enable_attention_slicing()
     pipe.to(device)
     return pipe
 
@@ -73,11 +72,7 @@ pipe = load_pipe()
 st.sidebar.header("🎛 Design Controls")
 
 domain = st.sidebar.selectbox("Domain", list(DOMAIN_OPTIONS.keys()))
-
-subcategory = st.sidebar.selectbox(
-    "Sub-category",
-    DOMAIN_OPTIONS[domain]
-)
+subcategory = st.sidebar.selectbox("Sub-category", DOMAIN_OPTIONS[domain])
 
 style = st.sidebar.text_input(
     "Style",
@@ -100,15 +95,15 @@ mode = st.sidebar.radio(
 )
 
 steps = st.sidebar.slider(
-    "Diffusion Steps (Speed)",
-    2, 6, 4
+    "Diffusion Steps (Speed vs Quality)",
+    2, 4, 2
 )
 
 video_seconds = 0
 if mode == "Video (Frames)":
     video_seconds = st.sidebar.slider(
         "Video Length (seconds)",
-        2, 6, 3
+        2, 5, 3
     )
 
 generate = st.sidebar.button("🚀 Generate")
@@ -117,7 +112,7 @@ generate = st.sidebar.button("🚀 Generate")
 def build_prompt(frame=None):
     motion = ""
     if frame is not None:
-        motion = f", slight variation, frame {frame}"
+        motion = f", cinematic variation, frame {frame}"
 
     return f"""
     {subcategory} in the domain of {domain},
@@ -135,7 +130,7 @@ if generate:
     os.makedirs("frames", exist_ok=True)
 
     if mode == "Image":
-        with st.spinner("Generating image (fast diffusion)..."):
+        with st.spinner("⚡ Generating image (SD-Turbo)…"):
             img = pipe(
                 prompt=build_prompt(),
                 num_inference_steps=steps,
@@ -149,7 +144,7 @@ if generate:
 
     else:
         st.subheader("🎥 Generated Design Frames")
-        frames = video_seconds * 3  # ~3 FPS concept
+        frames = video_seconds * 3  # ~3 FPS
 
         cols = st.columns(3)
 
@@ -165,4 +160,4 @@ if generate:
 
                 cols[i % 3].image(img, use_container_width=True)
 
-        st.success("Frame sequence generated (concept video)")
+        st.success("✅ Frame sequence generated (concept video)")
